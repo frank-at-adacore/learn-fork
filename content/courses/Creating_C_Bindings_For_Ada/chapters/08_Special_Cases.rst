@@ -35,7 +35,7 @@ making a copy of the object.
 .. code-block:: c
   :caption: C Header File
 
-  void IncreaseFlow ( void *pipe, unsigned amount );
+  void IncreaseFlow (void *pipe, unsigned amount);
  
 .. code-block:: Ada
   :caption: Ada Thin Binding
@@ -43,8 +43,8 @@ making a copy of the object.
   with Interfaces.C;
   with System;
   package Void_Pointer_H is
-     procedure Increase_Flow ( Pipe : System.Address;
-                               Amount : Interfaces.C.Unsigned)
+     procedure Increase_Flow (Pipe   : System.Address;
+                              Amount : Interfaces.C.Unsigned)
      with Import => Standard.True,
           Convention => C,
           External_Name => "IncreaseFlow";
@@ -58,8 +58,8 @@ making a copy of the object.
   package Void_Pointer is
      type Pipe_T is limited private;
      type Amount_T is new Interfaces.C.unsigned range 1 .. 1_000;
-     procedure Increase_Flow (Pipe   : System.Address;
-                              Amount : Interfaces.C.unsigned);
+     procedure Increase_Flow (Pipe   : Pipe_T;
+                              Amount : Amount_T);
   private
      type Pipe_T is new System.Address;
   end Void_Pointer;
@@ -77,34 +77,34 @@ may have different content based on some criteria.
   :caption: C Header File
 
   struct OpenPipeT {
-     unsigned pipeId;
-     unsigned requestor;
-     };
+          unsigned pipeId;
+          unsigned requestor;
+          };
   struct ChangeFlowT {
-     unsigned pipeId;
-     unsigned requestor;
-     short percentage;
-     };
+          unsigned pipeId;
+          unsigned requestor;
+          short percentage;
+          };
   struct ClosePipeT {
-     unsigned pipeId;
-     unsigned requestor;
-     };
-  enum CommandT { OPEN, CHANGE, CLOSE };
-  void setPipeCommand ( enum CommandT command,
-                        void *content );
+          unsigned pipeId;
+          unsigned requestor;
+          };
+  enum CommandT {OPEN, CHANGE, CLOSE};
+  void setPipeCommand (enum CommandT command,
+                       void *content);
 
-As you will notice above, :c:`setPipeCommand` takes a :ada:`void *`
+As you will notice above, :c:`setPipeCommand` takes a :c:`void *`
 parameter. When we call the function, we would create an object
 of the appropriate type and pass the address into the subprogram.
 
 .. code-block:: c
 
-  struct OpenPipeT message = { 1, 2 };
-  setPipeCommand ( OPEN, &message );
+  struct OpenPipeT message = {1, 2};
+  setPipeCommand (OPEN, &message);
 
 The concern in this case (regardless of language), is there is
-no verification that the contents at the address is a valid
-message, or even is a legal address.
+no verification that the content at the address is a valid
+message, or even if the address is legal.
 
 .. code-block:: Ada
   :caption: Ada Thin Binding
@@ -142,7 +142,7 @@ create an object, and pass the address of the object into
    procedure Open is
       Message : Open_Pipe_T := (1, 2);
    begin
-      Set_Pipe_Command (Open, Message'address);
+      Message_H.Set_Pipe_Command (Open, Message'address);
    end Open;
 
 But this still leaves the concern about random addresses.
@@ -150,8 +150,13 @@ But this still leaves the concern about random addresses.
 If we were writing this in Ada to begin with, one solution would be to
 use generics (either a subprogram or package) to implement different versions
 of :ada:`Set_Pipe_Command` that would take a parameter of the appropriate
-message type and have it call the thin binding, remove the ability of the
-clients to abuse the address parameter.
+message type. The thick binding should work the same way - it should be a
+generic subprogram that takes a message type as the generic formal parameter,
+and then the subprogram parameter would be the message. The implementation
+would then pass the address of the input message into the thin binding.
+This guarantees that the message content is valid (because the generic
+should be instantiated with a valid message type) and the address is
+valid (because we are taking the :ada:`'address` of a valid object).
 
 .. code-block:: Ada
   :caption: Ada Thick Binding
@@ -163,7 +168,7 @@ clients to abuse the address parameter.
 
    procedure Generic_Set_Pipe_Command (Content : Content_T) is
    begin
-      Set_Pipe_Command (Command, Content'address);
+      Message_H.Set_Pipe_Command (Command, Content'address);
    end Generic_Set_Pipe_Command;
 
 .. code-block:: Ada
@@ -185,4 +190,3 @@ clients to abuse the address parameter.
       Change_Flow_Command (Change_Flow);
       Close_Command (Close_Pipe);
    end Example;
-
